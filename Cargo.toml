@@ -1,0 +1,8 @@
+[package]
+name = "connect"
+version = "0.1.0"
+authors = ["savoisn <nicolas.savois@socgen.com>"]
+
+[dependencies]
+pcsc = "0.1"
+
