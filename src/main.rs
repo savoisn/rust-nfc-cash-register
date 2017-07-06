@@ -3,6 +3,8 @@ extern crate curl;
 
 use curl::easy::{Easy, List};
 use pcsc::*;
+use std::io::{stdin,stdout,Write};
+
 
 fn main() {
     let ctx = Context::establish(Scope::User).expect("failed to establish context");
@@ -28,7 +30,6 @@ fn main() {
         let names = ctx.list_readers(&mut readers_buf).expect("failed to list readers");
         for name in names {
             if !reader_states[1..].iter().any(|rs| rs.name() == name) {
-                println!("Adding {:?}", name);
                 reader_states.push(ReaderState::new(name, STATE_UNAWARE));
             }
         }
@@ -38,16 +39,33 @@ fn main() {
             rs.sync_current_state();
         }
 
+
+        let amount = 0;
+
         // Wait until the state changes.
         ctx.get_status_change(None, &mut reader_states).expect("failed to get status change");
 
         // Print current state.
         println!();
         for rs in &reader_states[1..] {
-            println!("{:?} {:?}", rs.name(), rs.event_state());
+            //println!("{:?} {:?}", rs.name(), rs.event_state());
             if rs.event_state().intersects(pcsc::STATE_PRESENT) {
                	let username = print_uid(&ctx);
-	 			makePayement(username, 200 )			
+	 			makePayement(username, amount );
+            } else if rs.event_state().intersects(pcsc::STATE_EMPTY) {
+                let mut s=String::new();
+                print!("enter transaction amount: ");
+                let _=stdout().flush();
+                stdin().read_line(&mut s).expect("Did not enter a correct string");
+                if let Some('\n')=s.chars().next_back() {
+                    s.pop();
+                }
+                if let Some('\r')=s.chars().next_back() {
+                    s.pop();
+                }
+                println!("pay with your phone!");
+                let amount = s.parse::<i32>().unwrap();
+                
             }
         }
         //printUID(&ctx);
@@ -61,7 +79,6 @@ fn print_uid(ctx: &pcsc::Context) -> &str {
     // List connected readers.
     let mut readers_buf = [0; 2048];
     let readers = ctx.list_readers(&mut readers_buf).expect("failed to list readers").collect::<Vec<_>>();
-    println!("Readers: {:?}", readers);
 
     if readers.is_empty() {
         return "";
@@ -78,9 +95,6 @@ fn print_uid(ctx: &pcsc::Context) -> &str {
             let apdu2 = b"\xff\xca\x00\x00\x00";
             let mut rapdu_buf2 = [0; MAX_BUFFER_SIZE];
             let rapdu2 = tx.transmit(apdu2, &mut rapdu_buf2).expect("failed to transmit APDU to card");
-            println!("MYVAL: {:?}", rapdu2);
-			println!("size: {:?}", rapdu2.len());
-			
 			
 			let aambal: [u8; 6] = [164u8, 158u8, 218u8, 1u8, 144u8, 0u8];
 			let bdekens: [u8; 6] = [164u8, 170u8, 47u8, 1u8, 144u8, 0u8];
@@ -96,7 +110,7 @@ fn print_uid(ctx: &pcsc::Context) -> &str {
 			if rapdu2 == nsavois {
 				card_holder = "nsavois";
 			}
-			println!("{:?}",card_holder);
+            println!("{:?} presented it's card, processing payment", card_holder);
 			
 
             tx.end(Disposition::LeaveCard).map_err(|(_, err)| err).expect("failed to end transaction");
@@ -111,7 +125,6 @@ fn makePayement(username: &str, amount: i32 ){
 	let mut easy = Easy::new();
 
 	let requestURL = format!("http://localhost/mydemo/api/expenses/payseller?amount={}&username={}", amount, username);
-	println!("{:?}",requestURL.as_str());
 
 	easy.url(requestURL.as_str()).unwrap();
     let mut list = List::new();
@@ -126,4 +139,5 @@ fn makePayement(username: &str, amount: i32 ){
 		Ok(data.len())
 	}).unwrap();
 	transfer.perform().unwrap();
+    println!("payment successful !");
 }
