@@ -5,4 +5,5 @@ authors = ["savoisn <nicolas.savois@socgen.com>"]
 
 [dependencies]
 pcsc = "0.1"
+curl = "0.4.7"
 

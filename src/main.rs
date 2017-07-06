@@ -1,42 +1,8 @@
-//fn main() {
-    //println!("Hello, world!");
-//}
-
-//extern crate pcsc;
-
-//use pcsc::*;
-
-//fn main() {
-    //// Get a context.
-    //let ctx = Context::establish(Scope::User).expect("failed to establish context");
-
-    //// First allocate the required buffer.
-    //let len = ctx.list_readers_len().expect("failed to list readers needed len");
-    //let mut readers_buf = vec![0; len];
-    //// Alternatively, we could have just used a sufficiently large
-    //// statically sized, stack allocated buffer instead, like we do in
-    //// other examples:
-    //// let mut readers_buf = [0; 2048];
-
-    //let names = ctx.list_readers(&mut readers_buf).expect("failed to list readers");
-    //for name in names {
-        //println!("{:?}", name);
-    //}
-//}
-
-
-// Example of communication with a smart card.
-
 extern crate pcsc;
+extern crate curl;
 
+use curl::easy::{Easy, List};
 use pcsc::*;
-
-
-// Example of how to monitor card & card reader state changes.
-
-//extern crate pcsc;
-
-//use pcsc::*;
 
 fn main() {
     let ctx = Context::establish(Scope::User).expect("failed to establish context");
@@ -80,14 +46,15 @@ fn main() {
         for rs in &reader_states[1..] {
             println!("{:?} {:?}", rs.name(), rs.event_state());
             if rs.event_state().intersects(pcsc::STATE_PRESENT) {
-                print_uid(&ctx);
+               	let username = print_uid(&ctx);
+	 			makePayement(username, 200 )			
             }
         }
         //printUID(&ctx);
     }
 }
 
-fn print_uid(ctx: &pcsc::Context) {
+fn print_uid(ctx: &pcsc::Context) -> &str {
     // Get a context.
     //let ctx = Context::establish(Scope::User).expect("failed to establish context");
 
@@ -97,7 +64,7 @@ fn print_uid(ctx: &pcsc::Context) {
     println!("Readers: {:?}", readers);
 
     if readers.is_empty() {
-        return;
+        return "";
     }
 
     {
@@ -130,21 +97,33 @@ fn print_uid(ctx: &pcsc::Context) {
 				card_holder = "nsavois";
 			}
 			println!("{:?}",card_holder);
-
-
-			//let uid: &str = std::str::from_utf8(rapdu2).unwrap();
+			
 
             tx.end(Disposition::LeaveCard).map_err(|(_, err)| err).expect("failed to end transaction");
+			return card_holder;
         }
-
-        // Can either disconnect explicity, which allows error handling,
-        // and setting the disposition method, or leave it to drop, which
-        // swallows any error and hardcodes ResetCard.
-        //card.disconnect(Disposition::ResetCard).map_err(|(_, err)| err).expect("failed to disconnect from card");
     }
-
-    // Can either release explicity, which allows error handling,
-    // or leave it to drop, which swallows any error.
-    //ctx.release().map_err(|(_, err)| err).expect("failed to release context");
 }
 
+fn makePayement(username: &str, amount: i32 ){
+
+	let mut dst = Vec::new();
+	let mut easy = Easy::new();
+
+	let requestURL = format!("http://localhost/mydemo/api/expenses/payseller?amount={}&username={}", amount, username);
+	println!("{:?}",requestURL.as_str());
+
+	easy.url(requestURL.as_str()).unwrap();
+    let mut list = List::new();
+	list.append("Content-Type: application/json").unwrap();
+	list.append("Accept: application/json").unwrap();
+	easy.http_headers(list).unwrap();
+
+
+	let mut transfer = easy.transfer();
+	transfer.write_function(|data| {
+		dst.extend_from_slice(data);
+		Ok(data.len())
+	}).unwrap();
+	transfer.perform().unwrap();
+}
