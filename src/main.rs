@@ -7,6 +7,7 @@ use std::io::{stdin,stdout,Write};
 
 
 fn main() {
+    let mut amount = 0;
     let ctx = Context::establish(Scope::User).expect("failed to establish context");
 
     let mut readers_buf = [0; 2048];
@@ -40,7 +41,6 @@ fn main() {
         }
 
 
-        let amount = 0;
 
         // Wait until the state changes.
         ctx.get_status_change(None, &mut reader_states).expect("failed to get status change");
@@ -64,7 +64,7 @@ fn main() {
                     s.pop();
                 }
                 println!("pay with your phone!");
-                let amount = s.parse::<i32>().unwrap();
+                amount = s.parse::<i32>().unwrap();
                 
             }
         }
